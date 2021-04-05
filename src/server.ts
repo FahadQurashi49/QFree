@@ -5,6 +5,7 @@ import * as bodyParser from 'body-parser';
 import { connect, Mongoose } from 'mongoose';
 
 import facilityRouter from './router/FacilityRoute';
+import queueRouter from './router/QueueRoute';
 
 // Creates and configures an ExpressJS web server.
 class Server {
@@ -36,7 +37,7 @@ class Server {
   // Configure API endpoints.
   private routes(): void {
     this.express.use('/api/v1/facility', facilityRouter);
-    // this.express.use('/api/v1/game_play', gamePlayRouter);
+    this.express.use('/api/v1/queue', queueRouter);
     this.express.use((err, req, res, next) => {
       let error = {
         error: err.message,
