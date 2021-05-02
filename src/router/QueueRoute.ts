@@ -11,14 +11,14 @@ export class QueueRouter {
 
     public async createOne(req: Request, res: Response, next: NextFunction) {
         try {
-            let queueObj = req.body;
-            if (queueObj && queueObj.facilityId) {
-                let facility = await Facility.findById(queueObj.facilityId);
+            const queueObj = req.body;
+            const facility = await Facility.findById(req.params.fac_id);
+            if (facility) {
                 queueObj.facility = facility;
             } else {
                 throw new Error('Queue can not exits without facility');
-            }
-            let queue = await Queue.create(queueObj);
+            } 
+            const queue = await Queue.create(queueObj);
             res.json(queue);
         } catch (e: any) {
             next(e);
@@ -35,9 +35,27 @@ export class QueueRouter {
         
     }
 
+    public async getAllQueues(req: Request, res: Response, next: NextFunction) {
+        try {
+                const limit = parseInt(<string> req.query.limit) || 10;
+                const page = parseInt(<string> req.query.page) || 0;
+                /* console.log(limit);
+                console.log(page);
+                console.log(req.params.fac_id);
+                let facility = await Facility.findById(req.params.fac_id); */
+                let queues = await Queue.find({ "facility": req.params.fac_id })
+                    .limit(limit).skip(page * limit);
+                res.json(queues);
+        } catch (e: any) {
+            next(e);
+        }
+    }
+
     public routes() {
-        this.router.post("/", this.createOne);
-        this.router.get("/:id", this.getOne);
+        const mainRoute = '/:fac_id/queue';
+        this.router.post(mainRoute, this.createOne);
+        this.router.get(mainRoute, this.getAllQueues);
+        this.router.get(mainRoute + "/:id", this.getOne);
     }
 
 }

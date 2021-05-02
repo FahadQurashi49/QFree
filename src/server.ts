@@ -37,13 +37,14 @@ class Server {
   // Configure API endpoints.
   private routes(): void {
     this.express.use('/api/v1/facility', facilityRouter);
-    this.express.use('/api/v1/queue', queueRouter);
+    this.express.use('/api/v1/facility', queueRouter);
     this.express.use((err, req, res, next) => {
       let error = {
         error: err.message,
         errorCode: err.errorCode || this.ERROR_CODE,
         statusCode: err.statusCode || this.ERROR_CODE,
       };
+      console.log(err);
       res.status(error.statusCode).json(error);
     });
   }

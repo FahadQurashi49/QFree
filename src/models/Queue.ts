@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose';
+import Utility from '../shared/utils'
 
 let QueueSchema: Schema = new Schema({
     name: {
@@ -7,7 +8,7 @@ let QueueSchema: Schema = new Schema({
         maxlength: [30, 'Name must be of atmost 30 characters'],
         required: [true, 'Name of queue is required']
     },
-    operator: {
+    operatorName: {
         type: String,
         minlength: [3, 'Name must be of atleast 3 characters'],
         maxlength: [30, 'Name must be of atmost 30 characters'],
@@ -60,7 +61,7 @@ let QueueSchema: Schema = new Schema({
         ref: 'slot'
     },
     facility: {
-        type: Schema.Types.ObjectId,
+        type: String,
         ref: 'facility',
         required: [true, 'queue can not exist without facility']
     },
@@ -77,25 +78,20 @@ QueueSchema.pre('save', async function () {
     /* ------------------- check queue serving time ------------------- */
     // qst start time
     let now = new Date();
-    let qstStLb = new Date(); // queue serving time Start time Lower bound
-    qstStLb.setHours((qstStLb.getHours() + 2) % 24);
-    qstStLb.setMinutes((qstStLb.getMinutes() + 30) % 60);
+    let qstStLb =  Utility.addSubHours(new Date(), 2);// queue serving time Start time Lower bound
 
     let qstStUb = new Date(); // queue serving time Start time Upper bound
     qstStUb.setDate(qstStUb.getDate() + 5);
 
     if (queue.servingTimeStart < qstStLb) {
-        throw new Error('QST must be after 2.5 hours from now')
+        throw new Error('QST must be after 2 hours from now')
     }
     if (queue.servingTimeStart > qstStUb) {
         throw new Error('QST must be before 5 days from now')
     }
     // qst end time
-    let qstEtLb = new Date(queue.servingTimeStart);
-    qstEtLb.setHours((queue.servingTimeStart.getHours() + 1) % 24);
-
-    let qstEtUb = new Date(queue.servingTimeStart);
-    qstEtUb.setHours((queue.servingTimeStart.getHours() + 8) % 24);
+    let qstEtLb = Utility.addSubHours(queue.servingTimeStart, 1);
+    let qstEtUb = Utility.addSubHours(queue.servingTimeStart, 8);
 
     if (queue.servingTimeEnd < qstEtLb) {
         throw new Error('QST must be of atleast 1 hour')
@@ -109,16 +105,14 @@ QueueSchema.pre('save', async function () {
     // lower bound
     if (queue.activationTimeStart < now) {
         throw new Error('QAT start time must not be past')
-    }
-    let qatStUb = new Date(queue.servingTimeStart); // queue activation time, Start time Upper bound
-    qatStUb.setHours((queue.servingTimeStart.getHours() - 1) % 24);
+    }// queue activation time, Start time Upper bound
+    let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true);
     if (queue.activationTimeStart > qatStUb) {
         throw new Error('QAT must be atleast 1 hour before QST')
     }
     // qat end time
     if (queue.activationTimeEnd) {
-        let qatEtLb = new Date(queue.activationTimeStart); // queue activation time, Start time Upper bound
-        qatEtLb.setHours((queue.activationTimeStart.getHours() + 1) % 24);
+        let qatEtLb = Utility.addSubHours(queue.activationTimeStart, 1);// queue activation time, Start time Upper bound
         if (queue.activationTimeEnd < qatEtLb) {
             throw new Error('QAT must be of atleast 1 hour');
         }
@@ -133,7 +127,6 @@ QueueSchema.pre('save', async function () {
     // queue serving time duration in minutes
     let qst_tp = ((queue.servingTimeEnd - queue.servingTimeStart)/1000)/60;
     let totSlots = Math.floor(qst_tp/(queue.timeToServe + (queue.breakTimeDuration? queue.breakTimeDuration: 0)));
-    console.log('totSlots:', totSlots);
     if (totSlots < 1) {
         throw new Error('Time to serve with break time duration, is more than serving time duration');
     }
