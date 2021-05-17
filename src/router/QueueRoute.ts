@@ -27,7 +27,7 @@ export class QueueRouter {
 
     public async getOne(req: Request, res: Response, next: NextFunction) {
         try {
-            let queue : any = await Queue.findById(req.params.id).populate('facility');
+            let queue : any = await Queue.findById(req.params.id); //.populate('facility');
             res.json(queue);
         } catch (e: any) {
             next(e);
@@ -44,7 +44,7 @@ export class QueueRouter {
                 console.log(req.params.fac_id);
                 let facility = await Facility.findById(req.params.fac_id); */
                 let queues = await Queue.find({ "facility": req.params.fac_id })
-                    .limit(limit).skip(page * limit);
+                    .limit(limit).skip(page * limit).sort({servingTimeStart: 'desc'});
                 res.json(queues);
         } catch (e: any) {
             next(e);
