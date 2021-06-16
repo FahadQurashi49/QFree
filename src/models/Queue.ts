@@ -1,7 +1,25 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 import Utility from '../shared/utils'
 
-let QueueSchema: Schema = new Schema({
+export interface Queue extends Document {
+    name: string;
+    operatorName: string;
+    activationTimeStart: Date;
+    activationTimeEnd: Date;
+    servingTimeStart: Date;
+    servingTimeEnd: Date;
+    breakTimeDuration: number;
+    timeToServe: number;
+    isQAT: boolean;
+    isQST: boolean;
+    canDequeue: boolean;
+    isComplete: boolean;
+    front: any;
+    rear: any;
+    facility: any;
+};
+
+let QueueSchema = new Schema<Queue>({
     name: {
         type: String,
         minlength: [3, 'Name must be of atleast 3 characters'],
@@ -52,6 +70,10 @@ let QueueSchema: Schema = new Schema({
         type: Boolean,
         default: false
     },
+    isComplete: {
+        type: Boolean,
+        default: false
+    },
     front: {
         type: Schema.Types.ObjectId,
         ref: 'slot'
@@ -69,6 +91,9 @@ let QueueSchema: Schema = new Schema({
 
 QueueSchema.pre('save', async function () {
     // check login
+    if (!this.isNew) {
+        return;
+    }
     let queue: any = this;
     console.log('running pre save hook:', queue.name);
     queue.activationTimeStart = new Date(queue.activationTimeStart);
@@ -132,21 +157,4 @@ QueueSchema.pre('save', async function () {
     }
 });
 
-/* export class IQueue extends Document {
-    name: String;
-    operator: String;
-    activationTimeStart: Date;
-    activationTimeEnd: Date;
-    servingTimeStart: Date;
-    servingTimeEnd: Date;
-    breakTimeDuration: Number;
-    isQAT: Boolean;
-    isQST: Boolean;
-    canDequeue: Boolean;
-    front: any;
-    rear: any;
-    facility: any;
-    public static checkQueue() {}
-}; */
-
-export default model('queue', QueueSchema);
+export const QueueModel = model<Queue>('queue', QueueSchema);

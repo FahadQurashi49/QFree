@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import Queue from '../models/Queue';
+import { scheduleJob } from 'node-schedule';
+import { Queue, QueueModel } from '../models/Queue';
 import Facility from '../models/Facility';
+import Utility from '../shared/utils'
 
 export class QueueRouter {
     public router: Router;
@@ -18,7 +20,31 @@ export class QueueRouter {
             } else {
                 throw new Error('Queue can not exits without facility');
             } 
-            const queue = await Queue.create(queueObj);
+            const queue: Queue = await QueueModel.create(queueObj);
+            scheduleJob('QAT', queue.activationTimeStart, () => {
+                console.log('running job');
+                queue.isQAT = true;
+                queue.save();
+            });
+            if (queue.activationTimeEnd.getTime() !== queue.servingTimeEnd.getTime()) {
+                scheduleJob('QAT_end', queue.activationTimeEnd, () => {
+                    queue.isQAT = false;
+                    queue.save();
+                });
+            }
+            /* scheduleJob('QST', queue.servingTimeStart, () => {
+                queue.isQST = true;
+                queue.save();
+            });
+            // end Queue after 2 hours of servingTimeEnd
+            const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
+            scheduleJob('QST', qstEnd, () => {
+                queue.isQST = false;
+                queue.isComplete = true;
+                // check if is still few slots are left
+                // set queue.isInComplete = true;
+                queue.save();
+            }); */
             res.json(queue);
         } catch (e: any) {
             next(e);
@@ -27,7 +53,7 @@ export class QueueRouter {
 
     public async getOne(req: Request, res: Response, next: NextFunction) {
         try {
-            let queue : any = await Queue.findById(req.params.id); //.populate('facility');
+            let queue : any = await QueueModel.findById(req.params.id); //.populate('facility');
             res.json(queue);
         } catch (e: any) {
             next(e);
@@ -43,7 +69,7 @@ export class QueueRouter {
                 console.log(page);
                 console.log(req.params.fac_id);
                 let facility = await Facility.findById(req.params.fac_id); */
-                let queues = await Queue.find({ "facility": req.params.fac_id })
+                let queues = await QueueModel.find({ "facility": req.params.fac_id })
                     .limit(limit).skip(page * limit).sort({servingTimeStart: 'desc'});
                 res.json(queues);
         } catch (e: any) {

@@ -44,7 +44,7 @@ class Server {
         errorCode: err.errorCode || this.ERROR_CODE,
         statusCode: err.statusCode || this.ERROR_CODE,
       };
-      console.log(err);
+      console.log(error);
       res.status(error.statusCode).json(error);
     });
   }
