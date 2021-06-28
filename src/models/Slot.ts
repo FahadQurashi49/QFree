@@ -1,49 +1,59 @@
-import {Schema, model} from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 import { SlotState } from './SlotState';
 import * as uniqueValidator from 'mongoose-unique-validator';
+import { Customer } from './Customer';
+import { Queue } from './Queue';
 
-let SlotSchema: Schema = new Schema({
+export interface Slot extends Document {
+    startTime: Date;
+    endTime: Date;
+    notificationTimes: [Date];
+    slotNo: number;
+    customerIdNo: string;
+    slotId: string;
+    state: SlotState;
+    customer: Customer;
+    queue: Queue;
+}
+
+let SlotSchema = new Schema<Slot>({
     startTime: {
-        type: Date,
-        required: [true, 'start time of slot is required']
+        type: Date
     },
     endTime: {
-        type: Date,
-        required: [true, 'end time of slot is required']
+        type: Date
     },
-    notificationTime: {
-        type: Date,
+    notificationTimes: {
+        type: [Date],
     },
     slotNo: {
         type: Number,
         index: { unique: true }
     },
     customerIdNo: { // customer identification number
-        type: Number,
+        type: String,
         index: { unique: true }
     },
-    cashPaid: {
-        type: Boolean,
-        default: false
-    },
-    fees: {
-        type: Number,
-        required: [true, 'fees of slot is required']
+    slotId: { // dummy customer registration
+        type: String,
+        index: { unique: true }
     },
     state: {
         type: String,
         enum: SlotState,
-        default: SlotState.inactive
+        default: SlotState.waiting
     },
-    next: {
+    queue: {
         type: Schema.Types.ObjectId,
-        ref: 'slot'
+        ref: 'queue',
+        required: [true, 'slot can not exist without queue']
     },
-    previous: {
+    customer: {
         type: Schema.Types.ObjectId,
-        ref: 'slot'
+        ref: 'customer'
     }
+    
 });
 
 SlotSchema.plugin(uniqueValidator);
-export default model('slot', SlotSchema);
+export const SlotModel = model<Slot>('slot', SlotSchema);

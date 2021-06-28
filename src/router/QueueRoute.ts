@@ -13,13 +13,14 @@ export class QueueRouter {
 
     public async createOne(req: Request, res: Response, next: NextFunction) {
         try {
-            const queueObj = req.body;
+            const queueObj: Queue = req.body;
             const facility = await Facility.findById(req.params.fac_id);
             if (facility) {
                 queueObj.facility = facility;
             } else {
                 throw new Error('Queue can not exits without facility');
-            } 
+            }
+            queueObj.totSlots = Utility.calcTotalSlots(queueObj);
             const queue: Queue = await QueueModel.create(queueObj);
             scheduleJob('QAT', queue.activationTimeStart, () => {
                 console.log('running job');

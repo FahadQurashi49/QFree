@@ -6,6 +6,8 @@ import { connect, Mongoose } from 'mongoose';
 
 import facilityRouter from './router/FacilityRoute';
 import queueRouter from './router/QueueRoute';
+import customerRouter from './router/CustomerRoute';
+import slotRouter from './router/SlotRoute';
 
 // Creates and configures an ExpressJS web server.
 class Server {
@@ -38,6 +40,9 @@ class Server {
   private routes(): void {
     this.express.use('/api/v1/facility', facilityRouter);
     this.express.use('/api/v1/facility', queueRouter);
+    this.express.use('/api/v1/facility', slotRouter);
+    this.express.use('/api/v1/customer', customerRouter);
+    
     this.express.use((err, req, res, next) => {
       let error = {
         error: err.message,

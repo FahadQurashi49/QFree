@@ -1,5 +1,5 @@
 export enum SlotState {
-    inactive = 'inactive',
+    waiting = 'waiting',
     active = 'active',
     identified = 'identified',
     complete = 'complete'

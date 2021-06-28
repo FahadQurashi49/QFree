@@ -10,13 +10,15 @@ export interface Queue extends Document {
     servingTimeEnd: Date;
     breakTimeDuration: number;
     timeToServe: number;
+    totSlots: number;
     isQAT: boolean;
     isQST: boolean;
     canDequeue: boolean;
     isComplete: boolean;
-    front: any;
-    rear: any;
+    front: number;
+    rear: number;
     facility: any;
+    isFull(): boolean;
 };
 
 let QueueSchema = new Schema<Queue>({
@@ -58,6 +60,9 @@ let QueueSchema = new Schema<Queue>({
         min: [5, 'time to serve should be more than 5 minutes'],
         required: [true, 'time to serve is required']
     },
+    totSlots: {
+        type: Number,
+    },
     isQAT: {
         type: Boolean,
         default: false
@@ -75,26 +80,30 @@ let QueueSchema = new Schema<Queue>({
         default: false
     },
     front: {
-        type: Schema.Types.ObjectId,
-        ref: 'slot'
+        type: Number,
+        default: -1
     },
     rear: {
-        type: Schema.Types.ObjectId,
-        ref: 'slot'
+        type: Number,
+        default: -1
     },
     facility: {
         type: String,
         ref: 'facility',
         required: [true, 'queue can not exist without facility']
-    },
+    }
 });
+
+QueueSchema.methods.isFull = function () {
+    return (this.rear === this.totSlots - 1);
+};
 
 QueueSchema.pre('save', async function () {
     // check login
     if (!this.isNew) {
         return;
     }
-    let queue: any = this;
+    let queue: Queue = this;
     console.log('running pre save hook:', queue.name);
     queue.activationTimeStart = new Date(queue.activationTimeStart);
     queue.servingTimeStart = new Date(queue.servingTimeStart);
@@ -149,10 +158,7 @@ QueueSchema.pre('save', async function () {
         queue.activationTimeEnd = queue.servingTimeEnd;
     }
     /* ------------------- check time to serve ------------------- */
-    // queue serving time duration in minutes
-    let qst_tp = ((queue.servingTimeEnd - queue.servingTimeStart)/1000)/60;
-    let totSlots = Math.floor(qst_tp/(queue.timeToServe + (queue.breakTimeDuration? queue.breakTimeDuration: 0)));
-    if (totSlots < 1) {
+    if (queue.totSlots < 1) {
         throw new Error('Time to serve with break time duration, is more than serving time duration');
     }
 });
