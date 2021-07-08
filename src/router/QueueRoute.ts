@@ -35,6 +35,7 @@ export class QueueRouter {
             }
             /* scheduleJob('QST', queue.servingTimeStart, () => {
                 queue.isQST = true;
+                queue.canDequeue = true;
                 queue.save();
             });
             // end Queue after 2 hours of servingTimeEnd

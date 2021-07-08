@@ -1,5 +1,8 @@
 import { Schema, model, Document } from 'mongoose';
+
+import { Slot, SlotModel } from '../models/Slot';
 import Utility from '../shared/utils'
+
 
 export interface Queue extends Document {
     name: string;
@@ -19,6 +22,8 @@ export interface Queue extends Document {
     rear: number;
     facility: any;
     isFull(): boolean;
+    isEmpty(): boolean;
+    peek(): Promise<Slot>;
 };
 
 let QueueSchema = new Schema<Queue>({
@@ -81,11 +86,11 @@ let QueueSchema = new Schema<Queue>({
     },
     front: {
         type: Number,
-        default: -1
+        default: 0
     },
     rear: {
         type: Number,
-        default: -1
+        default: 0
     },
     facility: {
         type: String,
@@ -95,7 +100,17 @@ let QueueSchema = new Schema<Queue>({
 });
 
 QueueSchema.methods.isFull = function () {
-    return (this.rear === this.totSlots - 1);
+    return (this.rear === this.totSlots);
+};
+
+QueueSchema.methods.isEmpty = function () {
+    return (this.front === 0 || this.front > this.rear);
+};
+
+QueueSchema.methods.peek = async function (): Promise<Slot> {
+    const queuePeek = 
+        await SlotModel.find({"queue": this._id, "slotNo": this.front});
+    return queuePeek[0];
 };
 
 QueueSchema.pre('save', async function () {
