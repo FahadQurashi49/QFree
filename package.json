@@ -20,6 +20,7 @@
     "mongoose": "^5.11.14",
     "mongoose-unique-validator": "^2.0.3",
     "morgan": "^1.10.0",
+    "nanoid": "^3.1.23",
     "node-schedule": "^2.0.0",
     "uuid": "^8.3.2"
   },

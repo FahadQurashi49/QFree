@@ -2,6 +2,7 @@ import { Schema, model, Document } from 'mongoose';
 
 import { Slot, SlotModel } from '../models/Slot';
 import Utility from '../shared/utils'
+import { SlotState } from './SlotState';
 
 
 export interface Queue extends Document {
@@ -24,6 +25,7 @@ export interface Queue extends Document {
     isFull(): boolean;
     isEmpty(): boolean;
     peek(): Promise<Slot>;
+    activateNextSlot(): Promise<Slot>;
 };
 
 let QueueSchema = new Schema<Queue>({
@@ -113,6 +115,23 @@ QueueSchema.methods.peek = async function (): Promise<Slot> {
     return queuePeek[0];
 };
 
+QueueSchema.methods.activateNextSlot = async function (): Promise<Slot> {
+    if (!this.isEmpty()) {
+        console.log('getting peek slot');
+        const peekSlot =  await this.peek();
+        console.log('peek slot', peekSlot);
+        if (peekSlot) {
+            peekSlot.state = SlotState.active;
+            peekSlot.save();
+            console.log('saving peek slot', peekSlot);
+            return peekSlot;
+        }
+    } else {
+        console.log('Queue is empty!');
+        return null;
+    }
+};
+
 QueueSchema.pre('save', async function () {
     // check login
     if (!this.isNew) {
@@ -127,14 +146,14 @@ QueueSchema.pre('save', async function () {
     /* ------------------- check queue serving time ------------------- */
     // qst start time
     let now = new Date();
-    let qstStLb =  Utility.addSubHours(new Date(), 2);// queue serving time Start time Lower bound
+    let qstStLb =  Utility.addSubHours(new Date(), 1);// queue serving time Start time Lower bound
 
     let qstStUb = new Date(); // queue serving time Start time Upper bound
     qstStUb.setDate(qstStUb.getDate() + 5);
 
     if (queue.servingTimeStart < qstStLb) {
-        throw new Error('QST must be after 2 hours from now')
-    }
+        throw new Error('QST must be after 1 hours from now')
+    } 
     if (queue.servingTimeStart > qstStUb) {
         throw new Error('QST must be before 5 days from now')
     }

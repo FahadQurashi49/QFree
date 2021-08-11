@@ -28,7 +28,6 @@ let SlotSchema = new Schema<Slot>({
     },
     slotNo: {
         type: Number,
-        index: { unique: true }
     },
     customerIdNo: { // customer identification number
         type: String,
@@ -55,5 +54,6 @@ let SlotSchema = new Schema<Slot>({
     
 });
 
+SlotSchema.index({ slotNo: 1, queue: 1}, { unique: true });
 SlotSchema.plugin(uniqueValidator);
 export const SlotModel = model<Slot>('slot', SlotSchema);

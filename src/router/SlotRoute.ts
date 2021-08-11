@@ -4,6 +4,7 @@ import { Queue, QueueModel } from '../models/Queue';
 import { Slot, SlotModel } from '../models/Slot';
 
 import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
 import { SlotState } from '../models/SlotState';
 
 export class SlotRouter {
@@ -44,8 +45,8 @@ export class SlotRouter {
             slot.slotNo = queue.rear + 1;
             
             // generate unique slotId and customerIdNo
-            slot.slotId = uuidv4();
-            slot.customerIdNo = uuidv4();
+            slot.slotId = nanoid();
+            slot.customerIdNo = nanoid();
 
             // slot.state = waiting (default value)
 
@@ -54,9 +55,8 @@ export class SlotRouter {
             customer.save();
             slot.customer = customer;
 
-            // slot number 1 means queue was empty
-            if (slot.slotNo === 1) {
-                queue.front = slot.slotNo;
+            if (queue.isQST && queue.isEmpty()) {
+                slot.state = SlotState.active;
             }
             queue.rear = slot.slotNo;
 
@@ -85,45 +85,28 @@ export class SlotRouter {
 
     public async getAllSlots(req: Request, res: Response, next: NextFunction) {
         try {
-                const limit = parseInt(<string> req.query.limit) || 10;
-                const page = parseInt(<string> req.query.page) || 0;
-                /* console.log(limit);
-                console.log(page);
-                console.log(req.params.fac_id);
-                let facility = await Facility.findById(req.params.fac_id); */
-                const queue = await QueueModel.findById(req.params.queue_id);
-                let slots = await SlotModel.find({"queue": queue._id}).populate('customer')
-                    .limit(limit).skip(page * limit).sort({slotNo: 'asc'});
-                res.json(slots);
-        } catch (e: any) {
-            next(e);
-        }
-    }
-
-    public async activateNextSlot(req: Request, res: Response, next: NextFunction) {
-        try {
+            const limit = parseInt(<string> req.query.limit) || 10;
+            const skip = parseInt(<string> req.query.skip) || 0;
             const queue = await QueueModel.findById(req.params.queue_id);
-            
-            if (queue.isEmpty()) {
-                throw new Error('Queue is empty');
-            }
-            if (!queue.canDequeue) {
-                throw new Error('can not activate slot right now');
-            }
-
-            queue.canDequeue = false;
-
-            const peekSlot =  await queue.peek();
-            peekSlot.state = SlotState.active;
-
-            queue.save();
-            peekSlot.save();
-            res.json(peekSlot);
+            let slots = await SlotModel.find({"queue": queue._id})
+                        .populate('customer')
+                        .limit(limit).skip(skip).sort({slotNo: 'asc'});
+            res.json(slots);
         } catch (e: any) {
             next(e);
         }
-        
     }
+
+    /*
+    Note:
+    identifyCustomer() function identify customer from facility app, 
+    we can add identification from customer app, 
+    each customer have to scan a code on reaching clinic, 
+    this will be a unique code store in queue model, 
+    on server side we can match the code and also check if slot is active (on Queue front).
+    but due to this model facility have to print the code or 
+    write the code on paper each and every time he start the queue
+    */
 
     public async identifyCustomer(req: Request, res: Response, next: NextFunction) {
         try {
@@ -137,7 +120,7 @@ export class SlotRouter {
                 slot.startTime = new Date();
                 slot.save();
             }
-            res.json({identified: identified});
+            res.json(slot);
         } catch (e: any) {
             next(e);
         }
@@ -159,27 +142,74 @@ export class SlotRouter {
             slot.state = SlotState.complete;
             slot.endTime = new Date();
 
-            const front = queue.front + 1;
-            if (queue.totSlots === front) {
-                queue.isComplete = true;
-            }
+            queue.front = queue.front + 1;
+            // make some logic to set queue.isComplete
+            const peekSlot: Slot = await queue.activateNextSlot();
 
-            queue.front = front;
-            queue.canDequeue = true;
+            const customer = await CustomerModel.findById(slot.customer);
+            customer.isInQueue = false;
 
+            customer.save();
             queue.save();
             slot.save();
-            res.json(queue);
+            res.json(slot);
         } catch(e: any) {
             next(e);
         }
     }
 
+    /* ---------------------------------Dev only functions---------------------------------------- */
+    /* Helper function to delete slots created in devlopment. 
+       Not to be used in actual app. */
+    public async deleteQueueSlots(req: Request, res: Response, next: NextFunction) {
+        try {
+            const queue: Queue = await QueueModel.findById(req.params.queue_id);
+            const slots: Slot[] = await SlotModel.find({"queue": queue._id});
+            const delQueue = req.query.del_queue;
+            const slotIds = slots.map(slot => {
+                return slot._id;
+            });
+            const custIds = slots.map(slot => {
+                return slot.customer._id;
+            });
+            console.log('slots', slotIds);
+            console.log('custs', custIds);
+            SlotModel.deleteMany({_id: slotIds}, {}, 
+                err => {if (err) console.error(err);});
+            CustomerModel.deleteMany({_id: custIds}, {}, 
+                err => {if (err) console.error(err);});
+            if (delQueue) {
+                console.log('deleting queue:', queue._id);
+                const response = await QueueModel.findByIdAndDelete(queue._id);
+                console.log('delete resp:', response);
+            } else {
+                queue.rear = 0;
+                queue.front = 0;
+                queue.save();
+            }
+            res.json({status: "deleted"});
+        } catch(e: any) {
+            next(e);
+        }
+    }
+    public async activatePeek(req: Request, res: Response, next: NextFunction) {
+        try {
+            const queue = await QueueModel.findById(req.params.queue_id);
+            const slot: Slot = await queue.activateNextSlot();
+            res.json(slot);
+        } catch (e: any) {
+            next(e);
+        }
+    }
+    /* ---------------------------------Dev only functions end------------------------------------- */
+
     public routes() {
         const mainRoute = '/:queue_id/slot';
         this.router.get(mainRoute, this.getAllSlots);
-        this.router.post(mainRoute + "/", this.createOne);
-        this.router.get(mainRoute + "/get/next", this.activateNextSlot);
+        this.router.post(mainRoute + '/', this.createOne);
+        // development only end points
+        this.router.get(mainRoute + '/delSlots', this.deleteQueueSlots);
+        this.router.get(mainRoute + '/activatePeek', this.activatePeek);
         
     }
     // do not require queue id

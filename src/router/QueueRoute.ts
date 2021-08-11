@@ -3,7 +3,6 @@ import { scheduleJob } from 'node-schedule';
 import { Queue, QueueModel } from '../models/Queue';
 import Facility from '../models/Facility';
 import Utility from '../shared/utils'
-
 export class QueueRouter {
     public router: Router;
     constructor() {
@@ -23,23 +22,27 @@ export class QueueRouter {
             queueObj.totSlots = Utility.calcTotalSlots(queueObj);
             const queue: Queue = await QueueModel.create(queueObj);
             scheduleJob('QAT', queue.activationTimeStart, () => {
-                console.log('running job');
+                console.log('running QAT job');
                 queue.isQAT = true;
                 queue.save();
             });
             if (queue.activationTimeEnd.getTime() !== queue.servingTimeEnd.getTime()) {
                 scheduleJob('QAT_end', queue.activationTimeEnd, () => {
+                    console.log('running QAT end job');
                     queue.isQAT = false;
                     queue.save();
                 });
             }
-            /* scheduleJob('QST', queue.servingTimeStart, () => {
-                queue.isQST = true;
-                queue.canDequeue = true;
-                queue.save();
+             scheduleJob('QST', queue.servingTimeStart, async () =>  {
+                console.log('running QST job');
+                const currQueue = await QueueModel.findById(queue._id);
+                currQueue.isQST = true;
+                currQueue.front = currQueue.front + 1;
+                await currQueue.activateNextSlot();
+                currQueue.save();
             });
             // end Queue after 2 hours of servingTimeEnd
-            const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
+            /*const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
             scheduleJob('QST', qstEnd, () => {
                 queue.isQST = false;
                 queue.isComplete = true;
