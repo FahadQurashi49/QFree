@@ -9,7 +9,9 @@ function scripts () {
                         .src()
                         .pipe(sourcemaps.init())
                         .pipe(tsProject());
-    return tsResult.js.pipe(sourcemaps.write('sourcemaps', {})).pipe(dest('dist'));
+    return tsResult.js
+    .pipe(sourcemaps.write('sourcemaps', {includeContent: false, sourceRoot: __dirname + '/src'}))
+    .pipe(dest('dist'));
 }
 const compileScripts = () => series(scripts);
 
