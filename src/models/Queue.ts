@@ -12,6 +12,7 @@ export interface Queue extends Document {
     activationTimeEnd: Date;
     servingTimeStart: Date;
     servingTimeEnd: Date;
+    endTime: Date;
     breakTimeDuration: number;
     timeToServe: number;
     totSlots: number;
@@ -26,6 +27,7 @@ export interface Queue extends Document {
     isEmpty(): boolean;
     peek(): Promise<Slot>;
     activateNextSlot(): Promise<Slot>;
+    endQueue(): Promise<void>;
 };
 
 let QueueSchema = new Schema<Queue>({
@@ -55,6 +57,9 @@ let QueueSchema = new Schema<Queue>({
     servingTimeEnd: {
         type: Date,
         required: [true, 'serving time end, of queue is required']
+    },
+    endTime: {
+        type: Date
     },
     breakTimeDuration: {
         // after each slot, in minutes
@@ -115,6 +120,13 @@ QueueSchema.methods.peek = async function (): Promise<Slot> {
     return queuePeek[0];
 };
 
+QueueSchema.methods.endQueue = async function (): Promise<void> {
+    this.isComplete = true;
+    this.isQAT = false;
+    this.isQST = false;
+    this.endTime = new Date();
+}
+
 QueueSchema.methods.activateNextSlot = async function (): Promise<Slot> {
     if (!this.isEmpty()) {
         console.log('getting peek slot');
@@ -153,7 +165,7 @@ QueueSchema.pre('save', async function () {
 
     if (queue.servingTimeStart < qstStLb) {
         throw new Error('QST must be after 1 hours from now')
-    } 
+    }
     if (queue.servingTimeStart > qstStUb) {
         throw new Error('QST must be before 5 days from now')
     }
@@ -175,7 +187,7 @@ QueueSchema.pre('save', async function () {
         throw new Error('QAT start time must not be past')
     }// queue activation time, Start time Upper bound
     let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true);
-    if (queue.activationTimeStart > qatStUb) {
+   if (queue.activationTimeStart > qatStUb) {
         throw new Error('QAT must be atleast 1 hour before QST')
     }
     // qat end time

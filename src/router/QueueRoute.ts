@@ -3,6 +3,8 @@ import { scheduleJob } from 'node-schedule';
 import { Queue, QueueModel } from '../models/Queue';
 import Facility from '../models/Facility';
 import Utility from '../shared/utils'
+import { Slot, SlotModel } from '../models/Slot';
+import { SlotState } from '../models/SlotState';
 export class QueueRouter {
     public router: Router;
     constructor() {
@@ -21,10 +23,16 @@ export class QueueRouter {
             }
             queueObj.totSlots = Utility.calcTotalSlots(queueObj);
             const queue: Queue = await QueueModel.create(queueObj);
-            scheduleJob('QAT', queue.activationTimeStart, () => {
+            scheduleJob('QAT', queue.activationTimeStart, async () => {
                 console.log('running QAT job');
-                queue.isQAT = true;
-                queue.save();
+                const currQueue = await QueueModel.findById(queue._id);
+                if (!currQueue.isComplete) {
+                    currQueue.isQAT = true;
+                    currQueue.save();
+                } else {
+                    console.log('Queue has been ended!');
+                }
+                
             });
             if (queue.activationTimeEnd.getTime() !== queue.servingTimeEnd.getTime()) {
                 scheduleJob('QAT_end', queue.activationTimeEnd, () => {
@@ -36,20 +44,23 @@ export class QueueRouter {
              scheduleJob('QST', queue.servingTimeStart, async () =>  {
                 console.log('running QST job');
                 const currQueue = await QueueModel.findById(queue._id);
-                currQueue.isQST = true;
-                currQueue.front = currQueue.front + 1;
-                await currQueue.activateNextSlot();
-                currQueue.save();
+                if (!currQueue.isComplete) {
+                    currQueue.isQST = true;
+                    currQueue.front = currQueue.front + 1;
+                    await currQueue.activateNextSlot();
+                    currQueue.save();
+                } else {
+                    console.log('Queue has been ended!');
+                }
+                
             });
             // end Queue after 2 hours of servingTimeEnd
-            /*const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
-            scheduleJob('QST', qstEnd, () => {
-                queue.isQST = false;
-                queue.isComplete = true;
-                // check if is still few slots are left
-                // set queue.isInComplete = true;
-                queue.save();
-            }); */
+            const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
+            scheduleJob('QST', qstEnd, async () => {
+                const currQueue = await QueueModel.findById(queue._id);
+                currQueue.endQueue();
+                currQueue.save();
+            });
             res.json(queue);
         } catch (e: any) {
             next(e);
@@ -74,19 +85,50 @@ export class QueueRouter {
                 console.log(page);
                 console.log(req.params.fac_id);
                 let facility = await Facility.findById(req.params.fac_id); */
-                let queues = await QueueModel.find({ "facility": req.params.fac_id })
+                let queues = await QueueModel.find({ "facility": req.params.fac_id, isComplete: false })
                     .limit(limit).skip(page * limit).sort({servingTimeStart: 'desc'});
                 res.json(queues);
         } catch (e: any) {
             next(e);
         }
     }
+    public async endQueue(req: Request, res: Response, next: NextFunction) {
+        try {
+            let queue : Queue = await QueueModel.findById(req.params.id);
+            if (!queue) {
+                throw new Error('No such queue');
+            }
+            if (queue.isComplete) {
+                res.json(queue);
+            }
+            const slots: Slot[] = await SlotModel.find({queue: queue._id, 
+                state: {$ne: SlotState.complete}})
+                .populate('customer');
+
+            slots.forEach((slot: Slot) => {
+                /* if (slot.state !== SlotState.waiting) {
+                    slot.state = SlotState.waiting;
+                } */
+                slot.customer.isInQueue = false;
+                slot.customer.save();
+            })
+
+            queue.endQueue();
+            queue.front = 0;
+            queue.save();
+            res.json(queue);
+        } catch (e: any) {
+            next(e);
+        }
+    }
+    
 
     public routes() {
         const mainRoute = '/:fac_id/queue';
         this.router.post(mainRoute, this.createOne);
         this.router.get(mainRoute, this.getAllQueues);
         this.router.get(mainRoute + "/:id", this.getOne);
+        this.router.get(mainRoute + "/:id/end", this.endQueue);
     }
 
 }

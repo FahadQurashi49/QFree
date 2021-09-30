@@ -30,6 +30,9 @@ export class SlotRouter {
             if (!queue.isQAT) {
                 throw new Error('queue not accepting appointments');
             }
+            if (queue.isComplete) {
+                throw new Error('Queue has been ended!');
+            }
             if (queue.isFull()) {
                 throw new Error('queue is full!');
             }
@@ -88,6 +91,9 @@ export class SlotRouter {
             const limit = parseInt(<string> req.query.limit) || 10;
             const skip = parseInt(<string> req.query.skip) || 0;
             const queue = await QueueModel.findById(req.params.queue_id);
+            if (queue === null) {
+                throw new Error('No such queue!');
+            }
             let slots = await SlotModel.find({"queue": queue._id})
                         .populate('customer')
                         .limit(limit).skip(skip).sort({slotNo: 'asc'});
@@ -110,9 +116,12 @@ export class SlotRouter {
 
     public async identifyCustomer(req: Request, res: Response, next: NextFunction) {
         try {
-            const slot = await SlotModel.findById(req.params.id);
+            const slot = await SlotModel.findById(req.params.id).populate("queue");
             if (slot.state !== SlotState.active) {
                 throw new Error('slot is not active');
+            }
+            if (slot.queue.isComplete) {
+                throw new Error('Queue has been ended');
             }
             const identified = slot.customerIdNo === req.params.custNo;
             if (identified) {
@@ -136,6 +145,9 @@ export class SlotRouter {
             if (queue.isEmpty()) {
                 throw new Error('Queue is empty');
             }
+            if (queue.isComplete) {
+                throw new Error('Queue has been ended');
+            }
             if (slot.state !== SlotState.identified) {
                 throw new Error('slot is not identified');
             }
@@ -143,8 +155,10 @@ export class SlotRouter {
             slot.endTime = new Date();
 
             queue.front = queue.front + 1;
-            // make some logic to set queue.isComplete
             const peekSlot: Slot = await queue.activateNextSlot();
+            if (peekSlot === null && queue.front > queue.totSlots) {
+                queue.endQueue();
+            }
 
             const customer = await CustomerModel.findById(slot.customer);
             customer.isInQueue = false;
