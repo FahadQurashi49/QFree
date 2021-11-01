@@ -2,6 +2,7 @@ import { Schema, model, Document } from 'mongoose';
 
 import { Slot, SlotModel } from '../models/Slot';
 import Utility from '../shared/utils'
+import { CustomerModel } from './Customer';
 import { SlotState } from './SlotState';
 
 
@@ -28,6 +29,7 @@ export interface Queue extends Document {
     peek(): Promise<Slot>;
     activateNextSlot(): Promise<Slot>;
     endQueue(): Promise<void>;
+    deleteWalkInCustomers(): Promise<void>;
 };
 
 let QueueSchema = new Schema<Queue>({
@@ -125,6 +127,19 @@ QueueSchema.methods.endQueue = async function (): Promise<void> {
     this.isQAT = false;
     this.isQST = false;
     this.endTime = new Date();
+    this.deleteWalkInCustomers();
+}
+
+QueueSchema.methods.deleteWalkInCustomers = async function (): Promise<void> {
+    const slots = 
+        await SlotModel.find({"queue": this._id}).populate('customer');
+    slots.forEach(slot => {
+        if (slot.customer.isWalkIn) {
+            CustomerModel.deleteOne(slot.customer);
+            slot.customer = null;
+            slot.save();
+        }
+    });
 }
 
 QueueSchema.methods.activateNextSlot = async function (): Promise<Slot> {
@@ -187,7 +202,7 @@ QueueSchema.pre('save', async function () {
         throw new Error('QAT start time must not be past')
     }// queue activation time, Start time Upper bound
     let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true);
-   if (queue.activationTimeStart > qatStUb) {
+    if (queue.activationTimeStart > qatStUb) {
         throw new Error('QAT must be atleast 1 hour before QST')
     }
     // qat end time

@@ -7,19 +7,18 @@ export interface Customer extends Document {
     mobileNumber: string;
     password: string;
     isInQueue: boolean;
+    isWalkIn: boolean;
+    isPrivateProfile: boolean;
 }
 
 let CustomerSchema = new Schema<Customer>({
     name: {
         type: String,
-        minlength: [3, 'Name must be of atleast 3 characters'],
-        maxlength: [30, 'Name must be of atmost 30 characters'],
-        required: [true, 'Name feild is required']
+        required: false
     },
     email: {
         type: String,
-        index: { unique: true },
-        required: [true, 'email feild is required']
+        required: false
     },
     mobileNumber: {
         type: String,
@@ -28,13 +27,19 @@ let CustomerSchema = new Schema<Customer>({
     },
     password: {
         type: String,
-        minlength: [6, 'password must be of atleast 6 characters'],
-        maxlength: [30, 'password must be of atmost 30 characters'],
-        required: [true, 'password feild is required']
+        required: false
     },
     isInQueue: {
         type: Boolean,
         default: false
+    },
+    isWalkIn: {
+        type: Boolean,
+        default: false
+    },
+    isPrivateProfile: {
+        type: Boolean,
+        default: true
     }
 });
 

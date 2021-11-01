@@ -16,11 +16,30 @@ export class SlotRouter {
         this.routes();
         this.directRoutes();
     }
-
+    // enqueue
     public async createOne(req: Request, res: Response, next: NextFunction) {
         try {
             const queue: Queue = await QueueModel.findById(req.params.queue_id);
-            const customer: Customer = await CustomerModel.findById(req.body.customerId);
+            let customer: Customer;
+            if (req.body.customerId) {
+                customer = await CustomerModel.findById(req.body.customerId);
+            } else if (req.body.mobileNumber) {
+                customer = await CustomerModel.findOne({mobileNumber: req.body.mobileNumber});
+                // Walk-in customer
+                if (customer == null) {
+                    let customerName = '';
+                    if (req.body.name) {
+                        customerName = req.body.name;
+                    }
+                    customer = await CustomerModel.create({
+                        name: customerName, 
+                        mobileNumber: req.body.mobileNumber
+                    });
+                    customer.isWalkIn = true;
+                    customer.isPrivateProfile = false;
+                }
+            }
+            
             if (!queue) {
                 throw new Error('No such queue');
             }
@@ -78,7 +97,7 @@ export class SlotRouter {
 
     public async getOne(req: Request, res: Response, next: NextFunction) {
         try {
-            let slot = await SlotModel.findById(req.params.id);
+            let slot = await SlotModel.findById(req.params.id).populate('customer');
             res.json(slot);
         } catch (e: any) {
             next(e);
@@ -116,14 +135,18 @@ export class SlotRouter {
 
     public async identifyCustomer(req: Request, res: Response, next: NextFunction) {
         try {
-            const slot = await SlotModel.findById(req.params.id).populate("queue");
+            const slot = await SlotModel.findById(req.params.id)
+                            .populate("queue")
+                            .populate("customer");
             if (slot.state !== SlotState.active) {
                 throw new Error('slot is not active');
             }
             if (slot.queue.isComplete) {
                 throw new Error('Queue has been ended');
             }
-            const identified = slot.customerIdNo === req.params.custNo;
+            let identified: boolean = false;
+            // TODO: get encrypted mobileNumber
+            identified = slot.customer.mobileNumber === req.params.custNo;
             if (identified) {
                 slot.state = SlotState.identified;
                 slot.startTime = new Date();
@@ -137,7 +160,7 @@ export class SlotRouter {
 
     public async dequeue(req: Request, res: Response, next: NextFunction) {
         try {
-            const slot = await SlotModel.findById(req.params.id);
+            const slot = await SlotModel.findById(req.params.id).populate('customer');
             if (!slot) {
                 throw new Error('No such slot!');
             }
@@ -160,10 +183,9 @@ export class SlotRouter {
                 queue.endQueue();
             }
 
-            const customer = await CustomerModel.findById(slot.customer);
-            customer.isInQueue = false;
+            slot.customer.isInQueue = false;
 
-            customer.save();
+            slot.customer.save();
             queue.save();
             slot.save();
             res.json(slot);
