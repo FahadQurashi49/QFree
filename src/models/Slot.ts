@@ -8,9 +8,8 @@ export interface Slot extends Document {
     startTime: Date;
     endTime: Date;
     notificationTimes: [Date];
-    slotNo: number;
-    customerIdNo: string;
-    slotId: string;
+    slotNo: number;     // internal numbering of slots always in sequence
+    customerNo: number; // customer numbering shown on the app
     state: SlotState;
     customer: Customer;
     queue: Queue;
@@ -26,16 +25,11 @@ let SlotSchema = new Schema<Slot>({
     notificationTimes: {
         type: [Date],
     },
-    slotNo: {
+    slotNo: {        // internal numbering of slots always in sequence
         type: Number,
     },
-    customerIdNo: { // customer identification number
-        type: String,
-        index: { unique: true }
-    },
-    slotId: { // dummy customer registration
-        type: String,
-        index: { unique: true }
+    customerNo: {    // customer numbering shown on the app
+        type: Number,
     },
     state: {
         type: String,
@@ -55,5 +49,7 @@ let SlotSchema = new Schema<Slot>({
 });
 
 SlotSchema.index({ slotNo: 1, queue: 1}, { unique: true });
+SlotSchema.index({ customerNo: 1, queue: 1}, { unique: true });
 SlotSchema.plugin(uniqueValidator);
+
 export const SlotModel = model<Slot>('slot', SlotSchema);

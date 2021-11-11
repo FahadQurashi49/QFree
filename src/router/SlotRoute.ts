@@ -2,9 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { Customer, CustomerModel } from '../models/Customer';
 import { Queue, QueueModel } from '../models/Queue';
 import { Slot, SlotModel } from '../models/Slot';
-
-import { v4 as uuidv4 } from 'uuid';
-import { nanoid } from 'nanoid';
 import { SlotState } from '../models/SlotState';
 
 export class SlotRouter {
@@ -65,10 +62,7 @@ export class SlotRouter {
             
             // set slot number
             slot.slotNo = queue.rear + 1;
-            
-            // generate unique slotId and customerIdNo
-            slot.slotId = nanoid();
-            slot.customerIdNo = nanoid();
+            slot.customerNo = queue.rear + 1;
 
             // slot.state = waiting (default value)
 
@@ -194,6 +188,83 @@ export class SlotRouter {
         }
     }
 
+    public async swap(req: Request, res: Response, next: NextFunction) {
+        try {
+            const peekSlot = await SlotRouter.swapSlots(req.params.id);
+            res.json(peekSlot);
+        } catch(e: any) {
+            next(e);
+        }
+    }
+
+    public async swapNext(req: Request, res: Response, next: NextFunction) {
+        try {
+            const peekSlot = await SlotModel.findById(req.params.id)
+                                .populate('customer')
+                                .populate('queue');
+            if (peekSlot.state != SlotState.active) {
+                throw new Error('Provided slot is not the peek slot');
+            }
+            const nextSlots = await SlotModel.find(
+                        {"queue": peekSlot.queue._id, "slotNo": peekSlot.slotNo + 1});
+            const nextSlot = nextSlots[0];
+            if (!nextSlot) {
+                throw new Error('No next slot in the queue');
+            }
+            
+            const newPeekSlot = await SlotRouter.swapSlots(nextSlot._id, peekSlot);
+            res.json(newPeekSlot);
+                                
+        } catch(e) {
+            next(e);
+        }
+    }
+
+    private static async swapSlots(slotId: any, peekSlot?: Slot): Promise<Slot> {
+        const slot = await SlotModel.findById(slotId)
+                        .populate('customer')
+                        .populate('queue');
+            // does slot exists?
+            if (!slot) {
+                throw new Error('No such slot!');
+            }
+            // is queue serving? and queue not completed?
+            if (!slot.queue.isQST) {
+                throw new Error('Queue is not serving!');
+            }
+            if (!peekSlot) {
+                peekSlot = await slot.queue.peek();
+            }
+            // does this queue has a peek slot?
+            if (!peekSlot) {
+                throw new Error('Queue does not have a peek slot');
+            }
+            // this slot state must be waiting
+            // peek slot state must be active
+            if (peekSlot.state != SlotState.active || 
+                slot.state != SlotState.waiting) {
+                    throw new Error('incorrect slot state for swaping');
+            }
+            // swap customerNo
+            const customerNo = slot.customerNo;
+            const peekCustomerNo = peekSlot.customerNo;
+            slot.customerNo = -1;
+            await slot.save();
+            slot.customerNo = peekCustomerNo;
+            peekSlot.customerNo = customerNo;
+            // swap customer
+            const customer = slot.customer;
+            slot.customer = peekSlot.customer;
+            peekSlot.customer = customer;
+            // save interchanged values
+            await peekSlot.save();
+            await slot.save();
+            // return peek slot which have been swaped
+            // with provided slot
+            return peekSlot;
+    }
+
+
     /* ---------------------------------Dev only functions---------------------------------------- */
     /* Helper function to delete slots created in devlopment. 
        Not to be used in actual app. */
@@ -206,8 +277,11 @@ export class SlotRouter {
                 return slot._id;
             });
             const custIds = slots.map(slot => {
-                return slot.customer._id;
+                if (slot.customer) {
+                    return slot.customer._id;
+                }
             });
+            custIds.filter(custId => !!custId);
             console.log('slots', slotIds);
             console.log('custs', custIds);
             SlotModel.deleteMany({_id: slotIds}, {}, 
@@ -253,6 +327,8 @@ export class SlotRouter {
         this.directRouter.get("/:id", this.getOne);
         this.directRouter.get("/:id/custNo/:custNo", this.identifyCustomer);
         this.directRouter.get("/:id/dequeue", this.dequeue);
+        this.directRouter.get("/:id/swap", this.swap);
+        this.directRouter.get("/:id/swapNext", this.swapNext);
     }
 
 }
