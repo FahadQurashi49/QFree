@@ -10,13 +10,11 @@ export interface Queue extends Document {
     name: string;
     operatorName: string;
     activationTimeStart: Date;
-    activationTimeEnd: Date;
     servingTimeStart: Date;
-    servingTimeEnd: Date;
     endTime: Date;
     breakTimeDuration: number;
     timeToServe: number;
-    totSlots: number;
+    custCount: number;
     isQAT: boolean;
     isQST: boolean;
     canDequeue: boolean;
@@ -49,16 +47,9 @@ let QueueSchema = new Schema<Queue>({
         type: Date,
         required: [true, 'activation time start, of queue is required']
     },
-    activationTimeEnd: {
-        type: Date
-    },
     servingTimeStart: {
         type: Date,
         required: [true, 'serving time start, of queue is required']
-    },
-    servingTimeEnd: {
-        type: Date,
-        required: [true, 'serving time end, of queue is required']
     },
     endTime: {
         type: Date
@@ -74,8 +65,10 @@ let QueueSchema = new Schema<Queue>({
         min: [5, 'time to serve should be more than 5 minutes'],
         required: [true, 'time to serve is required']
     },
-    totSlots: {
+    custCount: {
         type: Number,
+        max: [100, 'customer count should be less than 100'],
+        required: [true, 'customer count is required']
     },
     isQAT: {
         type: Boolean,
@@ -109,7 +102,7 @@ let QueueSchema = new Schema<Queue>({
 });
 
 QueueSchema.methods.isFull = function () {
-    return (this.rear === this.totSlots);
+    return (this.rear === this.custCount);
 };
 
 QueueSchema.methods.isEmpty = function () {
@@ -168,7 +161,6 @@ QueueSchema.pre('save', async function () {
     console.log('running pre save hook:', queue.name);
     queue.activationTimeStart = new Date(queue.activationTimeStart);
     queue.servingTimeStart = new Date(queue.servingTimeStart);
-    queue.servingTimeEnd = new Date(queue.servingTimeEnd);
 
     /* ------------------- check queue serving time ------------------- */
     // qst start time
@@ -178,21 +170,11 @@ QueueSchema.pre('save', async function () {
     let qstStUb = new Date(); // queue serving time Start time Upper bound
     qstStUb.setDate(qstStUb.getDate() + 5);
 
-    if (queue.servingTimeStart < qstStLb) {
+     if (queue.servingTimeStart < qstStLb) {
         throw new Error('QST must be after 1 hours from now')
-    }
+    } 
     if (queue.servingTimeStart > qstStUb) {
         throw new Error('QST must be before 5 days from now')
-    }
-    // qst end time
-    let qstEtLb = Utility.addSubHours(queue.servingTimeStart, 1);
-    let qstEtUb = Utility.addSubHours(queue.servingTimeStart, 8);
-
-    if (queue.servingTimeEnd < qstEtLb) {
-        throw new Error('QST must be of atleast 1 hour')
-    }
-    if (queue.servingTimeEnd > qstEtUb) {
-        throw new Error('QST cannot be more than 8 hours long')
     }
 
     /* ------------------- check queue activation time ------------------- */
@@ -201,26 +183,9 @@ QueueSchema.pre('save', async function () {
     if (queue.activationTimeStart < now) {
         throw new Error('QAT start time must not be past')
     }// queue activation time, Start time Upper bound
-    let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true);
+    let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true); 
     if (queue.activationTimeStart > qatStUb) {
         throw new Error('QAT must be atleast 1 hour before QST')
-    }
-    // qat end time
-    if (queue.activationTimeEnd) {
-        let qatEtLb = Utility.addSubHours(queue.activationTimeStart, 1);// queue activation time, Start time Upper bound
-        if (queue.activationTimeEnd < qatEtLb) {
-            throw new Error('QAT must be of atleast 1 hour');
-        }
-        // upper bound
-        if (queue.activationTimeEnd > queue.servingTimeEnd) {
-            throw new Error('QAT must not exceed QST');
-        }
-    } else {
-        queue.activationTimeEnd = queue.servingTimeEnd;
-    }
-    /* ------------------- check time to serve ------------------- */
-    if (queue.totSlots < 1) {
-        throw new Error('Time to serve with break time duration, is more than serving time duration');
     }
 });
 

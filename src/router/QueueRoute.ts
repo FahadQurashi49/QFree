@@ -21,7 +21,6 @@ export class QueueRouter {
             } else {
                 throw new Error('Queue can not exits without facility');
             }
-            queueObj.totSlots = Utility.calcTotalSlots(queueObj);
             const queue: Queue = await QueueModel.create(queueObj);
             scheduleJob('QAT', queue.activationTimeStart, async () => {
                 console.log('running QAT job');
@@ -34,13 +33,6 @@ export class QueueRouter {
                 }
                 
             });
-            if (queue.activationTimeEnd.getTime() !== queue.servingTimeEnd.getTime()) {
-                scheduleJob('QAT_end', queue.activationTimeEnd, () => {
-                    console.log('running QAT end job');
-                    queue.isQAT = false;
-                    queue.save();
-                });
-            }
              scheduleJob('QST', queue.servingTimeStart, async () =>  {
                 console.log('running QST job');
                 const currQueue = await QueueModel.findById(queue._id);
@@ -53,13 +45,6 @@ export class QueueRouter {
                     console.log('Queue has been ended!');
                 }
                 
-            });
-            // end Queue after 2 hours of servingTimeEnd
-            const qstEnd = Utility.addSubHours(queue.servingTimeEnd, 2);
-            scheduleJob('QST', qstEnd, async () => {
-                const currQueue = await QueueModel.findById(queue._id);
-                currQueue.endQueue();
-                currQueue.save();
             });
             res.json(queue);
         } catch (e: any) {

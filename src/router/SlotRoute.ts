@@ -49,10 +49,6 @@ export class SlotRouter {
             if (queue.isComplete) {
                 throw new Error('Queue has been ended!');
             }
-            // removing full queue check
-            /* if (queue.isFull()) {
-                throw new Error('queue is full!');
-            } */
             if (customer.isInQueue) {
                 throw new Error('customer already in queue!');
             }
@@ -76,6 +72,10 @@ export class SlotRouter {
                 slot.state = SlotState.active;
             }
             queue.rear = slot.slotNo;
+
+            if (queue.isFull()) {
+                queue.isQAT = false;
+            }
 
             // save queue changes rear and front
             queue.save();
@@ -174,12 +174,10 @@ export class SlotRouter {
 
             queue.front = queue.front + 1;
             const peekSlot: Slot = await queue.activateNextSlot();
-            // do not end queue when all calculated slots are served
-            // let facilitator serve for 2 more hours, after that 
-            // queue ends in qst_end job
-            /* if (peekSlot === null && queue.front > queue.totSlots) {
+            
+            if (peekSlot === null && queue.front > queue.custCount) {
                 queue.endQueue();
-            } */
+            }
 
             slot.customer.isInQueue = false;
 
