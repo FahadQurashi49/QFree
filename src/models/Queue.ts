@@ -6,6 +6,7 @@ import { CustomerModel } from './Customer';
 import { SlotState } from './SlotState';
 
 
+const isDev = false;
 export interface Queue extends Document {
     name: string;
     operatorName: string;
@@ -170,7 +171,7 @@ QueueSchema.pre('save', async function () {
     let qstStUb = new Date(); // queue serving time Start time Upper bound
     qstStUb.setDate(qstStUb.getDate() + 5);
 
-     if (queue.servingTimeStart < qstStLb) {
+     if (!isDev && queue.servingTimeStart < qstStLb) {
         throw new Error('QST must be after 1 hours from now')
     } 
     if (queue.servingTimeStart > qstStUb) {
@@ -184,7 +185,7 @@ QueueSchema.pre('save', async function () {
         throw new Error('QAT start time must not be past')
     }// queue activation time, Start time Upper bound
     let qatStUb = Utility.addSubHours(queue.servingTimeStart, 1, true); 
-    if (queue.activationTimeStart > qatStUb) {
+    if (!isDev && queue.activationTimeStart > qatStUb) {
         throw new Error('QAT must be atleast 1 hour before QST')
     }
 });
