@@ -67,13 +67,15 @@ export class QueueRouter {
                 const limit = parseInt(<string> req.query.limit) || 10;
                 const page = parseInt(<string> req.query.page) || 0;
                 const showCompleted = parseInt(<string> req.query.completed) === 1;
+                const showLive = parseInt(<string> req.query.live) === 1;
                 /* console.log(limit);
                 console.log(page);
                 console.log(req.params.fac_id);
                 let facility = await Facility.findById(req.params.fac_id); */
                 const filterParams = {
                     facility: req.params.fac_id, 
-                    isComplete: showCompleted
+                    isComplete: showCompleted,
+                    isQST: showLive
                 };
                 let queues = await QueueModel.find(filterParams)
                     .limit(limit).skip(page * limit).sort({servingTimeStart: 'desc'});
