@@ -3,10 +3,12 @@ import { Customer, CustomerModel } from '../models/Customer';
 import { Queue, QueueModel } from '../models/Queue';
 import { Slot, SlotModel } from '../models/Slot';
 import { SlotState } from '../models/SlotState';
+import { SocketService } from '../services/socketService';
 
 export class SlotRouter {
     public router: Router;
     public directRouter: Router;
+    private socketService = SocketService.Instance;
     constructor() {
         this.router = Router();
         this.directRouter = Router();
@@ -83,7 +85,9 @@ export class SlotRouter {
 
             // save populated slot object
             slot.save();
-            
+            console.log(`emitting slot# ${slot.customerNo} to room: queue-${queue._id}`)
+            SocketService.Instance.facilityNsp
+                .to(`queue-${queue._id}`).emit('slot added', slot);
             res.json(slot);
         } catch (e: any) {
             next(e);

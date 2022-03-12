@@ -127,9 +127,9 @@ QueueSchema.methods.endQueue = async function (): Promise<void> {
 QueueSchema.methods.deleteWalkInCustomers = async function (): Promise<void> {
     const slots = 
         await SlotModel.find({"queue": this._id}).populate('customer');
-    slots.forEach(slot => {
+    slots.forEach((slot: Slot) => {
         if (slot.customer.isWalkIn) {
-            CustomerModel.deleteOne(slot.customer);
+            CustomerModel.deleteOne(slot.customer._id);
             slot.customer = null;
             slot.save();
         }

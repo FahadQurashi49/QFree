@@ -43,6 +43,9 @@ class Server {
     this.express.use('/api/v1/queue', slotQueueRouter);
     this.express.use('/api/v1/slot', slotDirectRouter);
     this.express.use('/api/v1/customer', customerRouter);
+    this.express.get('/test-socket', (req, res) => {
+      res.sendFile(__dirname + '/test-socket.html');
+    });
     
     this.express.use((err, req, res, next) => {
       let error = {

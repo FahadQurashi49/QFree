@@ -1,0 +1,17 @@
+<html>
+    <head>
+        <script src="socket.io/socket.io.js"></script>
+        <title>test socket...</title> 
+    </head>
+    <body>
+        <div>
+            Test Sockets
+        </div>
+        <script>
+        const socket = io('/facility');
+        const queueId = '61f0252f889c8e46d590aca9';
+        socket.emit('join queue', queueId);
+        socket.on('slot added', (slot => console.log(slot)));
+        </script>   
+    </body>
+</html>

@@ -2,13 +2,14 @@
   "name": "qfree",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
     "build:live": "nodemon --exec ./node_modules/.bin/ts-node -- ./index.ts",
     "build": "gulp compile:script",
     "compile": "gulp compile:script && node dist/index.js",
-    "dev": "nodemon -e ts  --exec \"npm run compile\""
+    "dev": "nodemon -e ts  --exec \"npm run compile\"",
+    "watch:html": "gulp watch:html"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
     "morgan": "^1.10.0",
     "nanoid": "^3.1.23",
     "node-schedule": "^2.0.0",
+    "socket.io": "^4.4.1",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
@@ -34,7 +36,7 @@
     "gulp": "^4.0.2",
     "gulp-sourcemaps": "^3.0.0",
     "gulp-typescript": "^6.0.0-alpha.1",
-    "nodemon": "^2.0.7",
+    "nodemon": "^2.0.15",
     "ts-node": "^9.1.1",
     "typescript": "^4.1.3"
   }
