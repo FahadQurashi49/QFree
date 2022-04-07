@@ -188,6 +188,8 @@ export class SlotRouter {
             slot.customer.save();
             queue.save();
             slot.save();
+            SocketService.Instance.facilityNsp
+                .to(`queue-${queue._id}`).emit('update queue', {change: 'dequeue', queue: queue});
             res.json(slot);
         } catch(e: any) {
             next(e);

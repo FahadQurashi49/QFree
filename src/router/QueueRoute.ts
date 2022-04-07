@@ -5,6 +5,7 @@ import Facility from '../models/Facility';
 import Utility from '../shared/utils'
 import { Slot, SlotModel } from '../models/Slot';
 import { SlotState } from '../models/SlotState';
+import { SocketService } from '../services/socketService';
 export class QueueRouter {
     public router: Router;
     constructor() {
@@ -28,6 +29,9 @@ export class QueueRouter {
                 if (!currQueue.isComplete) {
                     currQueue.isQAT = true;
                     currQueue.save();
+                    SocketService.Instance.facilityNsp
+                        .to(`queue-${queue._id}`)
+                        .emit('update queue', {change: 'QAT_start', queue: currQueue});
                 } else {
                     console.log('Queue has been ended!');
                 }
@@ -41,6 +45,9 @@ export class QueueRouter {
                     currQueue.front = currQueue.front + 1;
                     await currQueue.activateNextSlot();
                     currQueue.save();
+                    SocketService.Instance.facilityNsp
+                        .to(`queue-${queue._id}`)
+                        .emit('update queue', {change: 'QST_start', queue: currQueue});
                 } else {
                     console.log('Queue has been ended!');
                 }
