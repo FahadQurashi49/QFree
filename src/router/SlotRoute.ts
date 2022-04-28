@@ -267,6 +267,11 @@ export class SlotRouter {
             // save interchanged values
             await peekSlot.save();
             await slot.save();
+
+            const swapSlots = [peekSlot, slot];
+            SocketService.Instance.facilityNsp
+                .to(`queue-${slot.queue._id}`).emit('slot swapped', swapSlots);
+            
             // return peek slot which have been swaped
             // with provided slot
             return peekSlot;
