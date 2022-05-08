@@ -28,6 +28,14 @@ socketService.facilityNsp.on('connection', (socket: Socket) => {
     console.log(`a socket left room = queue-${queueId}`);
     socket.leave(`queue-${queueId}`);
   });
+  socket.on('join slot', (slotId: string) => {
+    console.log(`a socket joined room = slot-${slotId}`);
+    socket.join(`slot-${slotId}`)
+  });
+  socket.on('leave slot', (slotId: string) => {
+    console.log(`a socket left room = slot-${slotId}`);
+    socket.leave(`slot-${slotId}`);
+  });
 });
 // facilityNsp.to('queue-xyz').emit('slot added');
 

@@ -151,6 +151,10 @@ export class SlotRouter {
                 slot.startTime = new Date();
                 slot.save();
             }
+            const slotId = `slot-${slot._id}`;
+            SocketService.Instance.facilityNsp
+                .to(slotId)
+                .emit('update slot', {change: 'identified', slot: slot});
             res.json(slot);
         } catch (e: any) {
             next(e);
